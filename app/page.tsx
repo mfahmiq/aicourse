@@ -1,84 +1,62 @@
 import Link from "next/link"
-import Image from "next/image"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { auth } from "@clerk/nextjs"
 
 export default function Home() {
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="container flex items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-blue-600"></div>
-          <span className="text-xl font-bold">Easy Study</span>
-        </div>
-        <Button variant="default" className="bg-blue-600 hover:bg-blue-700">
-          Sign Up
-        </Button>
-      </nav>
+  const { userId } = auth()
+  
+  if (userId) {
+    redirect("/dashboard")
+  }
 
-      {/* Hero Section */}
-      <main className="container relative mx-auto px-4 py-20 text-center">
-        {/* Decorative Images */}
-        <div className="absolute left-10 top-1/2 hidden -translate-y-1/2 lg:block">
+  return (
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b bg-white">
+        <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative h-32 w-32">
-              <Image
-                src="/placeholder.svg?height=128&width=128"
-                alt="Books and apple"
-                width={128}
-                height={128}
-                className="opacity-0"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center">
-                  <div className="flex items-end gap-1">
-                    <div className="h-16 w-3 rounded bg-blue-600"></div>
-                    <div className="h-12 w-3 rounded bg-blue-500"></div>
-                    <div className="h-14 w-3 rounded bg-blue-400"></div>
+            <div className="h-8 w-8 rounded-full bg-blue-600"></div>
+            <span className="text-xl font-bold">Easy Study</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" asChild>
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" asChild>
+              <Link href="/sign-up">Sign Up</Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+      <main className="flex-1">
+        <section className="bg-white py-20">
+          <div className="container">
+            <div className="grid gap-12 md:grid-cols-2 md:items-center">
+              <div>
+                <h1 className="mb-6 text-5xl font-bold leading-tight text-gray-900">
+                  Create personalized study materials with AI
+                </h1>
+                <p className="mb-8 text-xl text-gray-600">
+                  Easy Study helps you prepare for exams, interviews, and more with AI-generated study materials tailored to your needs.
+                </p>
+                <Button className="bg-blue-600 hover:bg-blue-700" size="lg" asChild>
+                  <Link href="/sign-up">Get Started</Link>
+                </Button>
+              </div>
+              <div className="rounded-lg bg-blue-50 p-8">
+                <div className="aspect-video rounded-lg bg-white p-6 shadow-lg">
+                  <div className="mb-4 h-8 w-1/2 rounded-full bg-blue-100"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-full rounded-full bg-gray-100"></div>
+                    <div className="h-4 w-5/6 rounded-full bg-gray-100"></div>
+                    <div className="h-4 w-4/6 rounded-full bg-gray-100"></div>
                   </div>
-                  <div className="mt-2 h-5 w-5 rounded-full bg-red-500"></div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 lg:block">
-          <div className="relative h-32 w-32 rounded-xl bg-slate-900 p-4">
-            <div className="flex flex-col gap-2">
-              <div className="h-2 w-16 rounded bg-blue-500"></div>
-              <div className="h-2 w-12 rounded bg-green-500"></div>
-              <div className="h-2 w-14 rounded bg-purple-500"></div>
-              <div className="h-2 w-10 rounded bg-yellow-500"></div>
-            </div>
-            <div className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded bg-slate-800">
-              <div className="h-3 w-3 rounded-sm bg-blue-500"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="mx-auto max-w-3xl">
-          <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-            <span>AI-Powered </span>
-            <span className="text-blue-600">Exam Prep</span>
-            <br />
-            <span className="text-blue-600">Material Generator</span>
-          </h1>
-          <p className="mb-12 text-xl text-muted-foreground">
-            Your AI Exam Prep Companion: Effortless Study Material at Your Fingertips
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-              Get Started
-              <span className="ml-2">→</span>
-            </Button>
-          </div>
-        </div>
+        </section>
       </main>
     </div>
   )
 }
-

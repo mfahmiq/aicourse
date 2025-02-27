@@ -1,14 +1,20 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { GraduationCap, Briefcase, FileEdit, Code, BookOpen } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { GraduationCap, Briefcase, FileEdit, Code, BookOpen, Upload } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@clerk/nextjs"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
-const studyOptions = [
+const initialStudyOptions = [
   {
     id: "exam",
     title: "Exam",
@@ -46,32 +52,138 @@ const studyOptions = [
   },
 ]
 
+const secondStepOptions = [
+  {
+    id: "gemini",
+    title: "Gemini",
+    icon: GraduationCap,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+  },
+  {
+    id: "pdf",
+    title: "PDF",
+    icon: Briefcase,
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+  },
+  {
+    id: "web-link",
+    title: "Web",
+    icon: FileEdit,
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+  },
+]
+
 export default function CreatePage() {
+  const { userId } = useAuth()
+  const router = useRouter()
+  
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [step, setStep] = useState(1)
   const [topic, setTopic] = useState("")
+  const [title, setTitle] = useState("")
   const [difficulty, setDifficulty] = useState("")
+  const [secondStepSelected, setSecondStepSelected] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Dialog states
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
+  const [isWebDialogOpen, setIsWebDialogOpen] = useState(false)
+  const [documentName, setDocumentName] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [webUrl, setWebUrl] = useState("")
 
   const handleOptionClick = (optionId: string) => {
-    setSelectedOption(optionId)
+    if (step === 1) {
+      setSelectedOption(optionId)
+    } else if (step === 2) {
+      if (optionId === "pdf") {
+        setIsPdfDialogOpen(true)
+      } else if (optionId === "web-link") {
+        setIsWebDialogOpen(true)
+      } else {
+        setSecondStepSelected(optionId)
+      }
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0])
+    }
+  }
+
+  const handlePdfSubmit = () => {
+    if (documentName && selectedFile) {
+      setSecondStepSelected("pdf")
+      setIsPdfDialogOpen(false)
+      // Handle PDF upload logic here
+      console.log("PDF Upload:", { documentName, file: selectedFile })
+    }
+  }
+
+  const handleWebSubmit = () => {
+    if (webUrl) {
+      setSecondStepSelected("web-link")
+      setIsWebDialogOpen(false)
+      // Handle web URL logic here
+      console.log("Web URL:", { url: webUrl })
+    }
   }
 
   const handleNext = () => {
-    setStep(2)
+    if (step === 1 && selectedOption) {
+      setStep(2)
+    } else if (step === 2 && secondStepSelected) {
+      setStep(3)
+    }
   }
 
   const handlePrevious = () => {
-    setStep(1)
-    setSelectedOption(null)
+    if (step === 3) {
+      setStep(2)
+    } else if (step === 2) {
+      setSecondStepSelected(null)
+      setStep(1)
+    }
   }
 
-  const handleGenerate = () => {
-    // Handle generation logic here
-    console.log({
-      type: selectedOption,
-      topic,
-      difficulty,
-    })
+  const handleGenerate = async () => {
+    if (!userId || !selectedOption || !secondStepSelected || !topic || !difficulty || !title) {
+      return
+    }
+    
+    setIsLoading(true)
+    
+    try {
+      // Create a new study material in Supabase
+      const { data, error } = await supabase
+        .from('study_materials')
+        .insert({
+          user_id: userId,
+          title: title,
+          description: topic.substring(0, 200), // Use first 200 chars as description
+          content: topic,
+          type: selectedOption,
+          method: secondStepSelected,
+          difficulty: difficulty,
+        })
+        .select()
+      
+      if (error) {
+        console.error("Error creating study material:", error)
+        throw error
+      }
+      
+      // Redirect to dashboard
+      router.push('/dashboard')
+    } catch (error) {
+      console.error("Error generating study material:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (step === 1) {
@@ -95,7 +207,7 @@ export default function CreatePage() {
             </h2>
 
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-5">
-              {studyOptions.map((option) => (
+              {initialStudyOptions.map((option) => (
                 <Card
                   key={option.id}
                   className={`group cursor-pointer border transition-all hover:border-blue-600 hover:shadow-md ${
@@ -103,12 +215,12 @@ export default function CreatePage() {
                   }`}
                   onClick={() => handleOptionClick(option.id)}
                 >
-                  <CardContent className="flex flex-col items-center p-6">
+                  <div className="flex flex-col items-center p-6">
                     <div className={`mb-4 rounded-full ${option.bgColor} p-3`}>
                       <option.icon className={`h-8 w-8 ${option.color}`} />
                     </div>
                     <span className="text-center text-sm font-medium text-gray-900">{option.title}</span>
-                  </CardContent>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -130,28 +242,172 @@ export default function CreatePage() {
     )
   }
 
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-white p-8">
+        <div className="mx-auto max-w-5xl">
+          {/* Header */}
+          <div className="mb-12 text-center">
+            <h1 className="mb-4 text-4xl font-bold tracking-tight text-blue-600">
+              Choose Your Study Method
+            </h1>
+            <p className="text-lg text-gray-600">
+              Select how you want to generate your study material
+            </p>
+          </div>
+
+          {/* Study Method Selection */}
+          <div className="mb-8">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              {secondStepOptions.map((option) => (
+                <Card
+                  key={option.id}
+                  className={`group cursor-pointer border transition-all hover:border-blue-600 hover:shadow-md ${
+                    secondStepSelected === option.id ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-white"
+                  }`}
+                  onClick={() => handleOptionClick(option.id)}
+                >
+                  <div className="flex flex-col items-center p-6">
+                    <div className={`mb-4 rounded-full ${option.bgColor} p-3`}>
+                      <option.icon className={`h-8 w-8 ${option.color}`} />
+                    </div>
+                    <span className="text-center text-sm font-medium text-gray-900">{option.title}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* PDF Upload Dialog */}
+          <Dialog open={isPdfDialogOpen} onOpenChange={setIsPdfDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload PDF Document</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="documentName">Document Name</Label>
+                  <Input
+                    id="documentName"
+                    value={documentName}
+                    onChange={(e) => setDocumentName(e.target.value)}
+                    placeholder="Enter document name"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="pdfFile">PDF File</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="pdfFile"
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileChange}
+                      className="file:bg-blue-50 file:text-blue-600 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 hover:file:bg-blue-100"
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  onClick={handlePdfSubmit}
+                  disabled={!documentName || !selectedFile}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Upload
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Web Link Dialog */}
+          <Dialog open={isWebDialogOpen} onOpenChange={setIsWebDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Enter Website URL</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="webUrl">Website URL</Label>
+                  <Input
+                    id="webUrl"
+                    type="url"
+                    value={webUrl}
+                    onChange={(e) => setWebUrl(e.target.value)}
+                    placeholder="https://example.com"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button
+                  onClick={handleWebSubmit}
+                  disabled={!webUrl}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Submit
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Navigation */}
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              className="border-gray-200 hover:bg-gray-100 hover:text-gray-900"
+              onClick={handlePrevious}
+            >
+              Previous
+            </Button>
+            {secondStepSelected && (
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleNext}>
+                Next
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white p-8">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-blue-600">
-            Start Building Your Personal Study Material
+            Enter Study Details
           </h1>
           <p className="text-lg text-gray-600">
-            Fill All details in order to generate study material for your next project
+            Provide the topic and difficulty level for your study material
           </p>
         </div>
 
-        {/* Content Form */}
         <div className="mb-8 space-y-8">
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              Enter topic or paster the content for which you want to generate study material
+              Enter a title for your study material
+            </h2>
+            <Input
+              placeholder="Enter a title"
+              className="bg-white text-gray-900 border-blue-200 focus:border-blue-600 focus:ring-blue-600 placeholder:text-gray-500"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Enter topic or paste the content for which you want to generate study material
             </h2>
             <Textarea
               placeholder="Start writing here"
-              className="min-h-[150px] bg-white border-gray-200 focus:border-blue-600 focus:ring-blue-600"
+              className="min-h-[150px] bg-white text-gray-900 border-blue-200 focus:border-blue-600 focus:ring-blue-600 placeholder:text-gray-500"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
@@ -160,13 +416,19 @@ export default function CreatePage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Select the difficulty Level</h2>
             <Select value={difficulty} onValueChange={setDifficulty}>
-              <SelectTrigger className="bg-white border-gray-200 focus:border-blue-600 focus:ring-blue-600">
-                <SelectValue placeholder="Difficulty Level" />
+              <SelectTrigger className="bg-white text-gray-900 border-blue-200 focus:border-blue-600 focus:ring-blue-600">
+                <SelectValue placeholder="Difficulty Level" className="text-gray-500" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
+              <SelectContent className="bg-white border-blue-200">
+                <SelectItem value="beginner" className="text-gray-900 hover:bg-blue-50">
+                  Beginner
+                </SelectItem>
+                <SelectItem value="intermediate" className="text-gray-900 hover:bg-blue-50">
+                  Intermediate
+                </SelectItem>
+                <SelectItem value="advanced" className="text-gray-900 hover:bg-blue-50">
+                  Advanced
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -181,12 +443,17 @@ export default function CreatePage() {
           >
             Previous
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleGenerate}>
-            Generate
-          </Button>
+          {topic && difficulty && title && (
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleGenerate}
+              disabled={isLoading}
+            >
+              {isLoading ? "Generating..." : "Generate"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
   )
 }
-
