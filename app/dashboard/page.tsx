@@ -1,33 +1,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter, CardHeader } from "@/components/ui/card"
-import { RefreshCcw, Laptop } from "lucide-react"
+import { RefreshCcw, Laptop, Plus } from "lucide-react"
 import Link from "next/link"
 import { auth, currentUser } from "@clerk/nextjs"
 import { redirect } from "next/navigation"
-
-const courses = [
-  {
-    title: "Easy Python",
-    description: "A concise introduction to Python programming fundamentals.",
-    date: "20 Dec 2024",
-  },
-  {
-    title: "ReactJS for Beginners",
-    description: "A beginner-friendly introduction to ReactJS, covering the fundamentals of building user interfaces.",
-    date: "20 Dec 2024",
-  },
-  {
-    title: "Data Structures and Algorithms (Easy)",
-    description: "This course provides a foundational understanding of essential data structures and algorithms.",
-    date: "20 Dec 2024",
-  },
-  {
-    title: "Flutter Coding Prep",
-    description:
-      "This course provides a gentle introduction to Flutter, covering the basics needed to build simple mobile apps.",
-    date: "20 Dec 2024",
-  },
-]
+import { UserButton } from "@clerk/nextjs"
+import { supabase } from "@/lib/supabase"
+import { StudyMaterial } from "@/lib/types"
 
 export default async function DashboardPage() {
   const { userId } = auth()
@@ -36,6 +15,19 @@ export default async function DashboardPage() {
   if (!userId) {
     redirect("/sign-in")
   }
+
+  // Fetch user's study materials from Supabase
+  const { data: studyMaterials, error } = await supabase
+    .from('study_materials')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  
+  if (error) {
+    console.error("Error fetching study materials:", error)
+  }
+
+  const materials = studyMaterials as StudyMaterial[] || []
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -53,7 +45,10 @@ export default async function DashboardPage() {
           {/* Create New Button */}
           <div className="px-4">
             <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-              <Link href="/create">+ Create New</Link>
+              <Link href="/create" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Create New</span>
+              </Link>
             </Button>
           </div>
 
@@ -100,23 +95,26 @@ export default async function DashboardPage() {
             </Button>
             <Button
               variant="ghost"
+              asChild
               className="w-full justify-start gap-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="8" r="5" />
-                <path d="M20 21a8 8 0 1 0-16 0" />
-              </svg>
-              Profile
+              <Link href="/profile">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="8" r="5" />
+                  <path d="M20 21a8 8 0 1 0-16 0" />
+                </svg>
+                Profile
+              </Link>
             </Button>
           </nav>
 
@@ -138,6 +136,14 @@ export default async function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 bg-white">
+        {/* Header with User Profile */}
+        <div className="border-b bg-white">
+          <div className="flex h-16 items-center justify-between px-6">
+            <h1 className="text-xl font-semibold">Dashboard</h1>
+            <UserButton afterSignOutUrl="/" />
+          </div>
+        </div>
+        
         {/* Welcome Banner */}
         <div className="bg-blue-600 p-8 text-white">
           <div className="flex items-center gap-6">
@@ -161,36 +167,68 @@ export default async function DashboardPage() {
             </Button>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
-              <Card key={course.title} className="border-gray-100 bg-white shadow-sm">
-                <CardHeader className="flex-row items-start gap-4 space-y-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 p-2">
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-end gap-0.5">
-                        <div className="h-6 w-1.5 rounded bg-blue-600"></div>
-                        <div className="h-5 w-1.5 rounded bg-blue-500"></div>
-                        <div className="h-4 w-1.5 rounded bg-blue-400"></div>
+          {materials.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {materials.map((material) => (
+                <Card key={material.id} className="border-gray-100 bg-white shadow-sm">
+                  <CardHeader className="flex-row items-start gap-4 space-y-0">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 p-2">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-end gap-0.5">
+                          <div className="h-6 w-1.5 rounded bg-blue-600"></div>
+                          <div className="h-5 w-1.5 rounded bg-blue-500"></div>
+                          <div className="h-4 w-1.5 rounded bg-blue-400"></div>
+                        </div>
+                        <div className="mt-1 h-2 w-2 rounded-full bg-red-500"></div>
                       </div>
-                      <div className="mt-1 h-2 w-2 rounded-full bg-red-500"></div>
                     </div>
-                  </div>
-                  <div className="flex flex-1 flex-col">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold text-gray-900">{course.title}</h3>
-                      <span className="ml-2 shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">
-                        {course.date}
-                      </span>
+                    <div className="flex flex-1 flex-col">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-gray-900">{material.title}</h3>
+                        <span className="ml-2 shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">
+                          {new Date(material.created_at).toLocaleDateString('en-US', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-600">{material.description}</p>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm text-gray-600">{course.description}</p>
-                  </div>
-                </CardHeader>
-                <CardFooter className="pt-0">
-                  <Button className="ml-auto bg-blue-600 hover:bg-blue-700">View</Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+                  </CardHeader>
+                  <CardFooter className="pt-0">
+                    <Button className="ml-auto bg-blue-600 hover:bg-blue-700">View</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 p-12 text-center">
+              <div className="mb-4 rounded-full bg-blue-50 p-3">
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+              </div>
+              <h3 className="mb-2 text-lg font-medium text-gray-900">No study materials yet</h3>
+              <p className="mb-6 text-sm text-gray-500">
+                Create your first study material to get started
+              </p>
+              <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                <Link href="/create">Create New Material</Link>
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     </div>

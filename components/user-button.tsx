@@ -15,6 +15,7 @@ export function UserButton() {
           userButtonAvatarBox: "h-8 w-8",
         }
       }}
+      afterSignOutUrl="/"
     />
   )
 }
