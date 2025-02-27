@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardFooter, CardHeader } from "@/components/ui/card"
 import { RefreshCcw, Laptop } from "lucide-react"
 import Link from "next/link"
+import { auth, currentUser } from "@clerk/nextjs"
+import { redirect } from "next/navigation"
 
 const courses = [
   {
@@ -27,7 +29,14 @@ const courses = [
   },
 ]
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { userId } = auth()
+  const user = await currentUser()
+  
+  if (!userId) {
+    redirect("/sign-in")
+  }
+
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
@@ -35,10 +44,10 @@ export default function DashboardPage() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="p-6">
-            <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-blue-600"></div>
               <span className="text-xl font-bold">Easy Study</span>
-            </div>
+            </Link>
           </div>
 
           {/* Create New Button */}
@@ -134,7 +143,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-6">
             <Laptop className="h-16 w-16" />
             <div>
-              <h1 className="text-3xl font-bold">Hello, Game Play</h1>
+              <h1 className="text-3xl font-bold">Hello, {user?.firstName || "User"}</h1>
               <p className="mt-1 text-lg text-blue-50">
                 Welcome Back, Its time to get back and start learning new course
               </p>
@@ -187,4 +196,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
