@@ -1,33 +1,32 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter, CardHeader } from "@/components/ui/card"
 import { RefreshCcw, Laptop, Plus } from "lucide-react"
 import Link from "next/link"
-import { auth, currentUser } from "@clerk/nextjs"
-import { redirect } from "next/navigation"
+import { useAuth, useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 import { UserButton } from "@clerk/nextjs"
-import { supabase } from "@/lib/supabase"
-import { StudyMaterial } from "@/lib/types"
+import { getFromLocalStorage } from "@/lib/localStorage"
+import { useEffect, useState } from "react"
+import { LocalStudyMaterial } from "@/lib/localStorage"
 
-export default async function DashboardPage() {
-  const { userId } = auth()
-  const user = await currentUser()
-  
-  if (!userId) {
-    redirect("/sign-in")
-  }
+export default function DashboardPage() {
+  const { userId } = useAuth()
+  const { user } = useUser()
+  const router = useRouter()
+  const [materials, setMaterials] = useState<LocalStudyMaterial[]>([])
 
-  // Fetch user's study materials from Supabase
-  const { data: studyMaterials, error } = await supabase
-    .from('study_materials')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-  
-  if (error) {
-    console.error("Error fetching study materials:", error)
-  }
+  useEffect(() => {
+    if (!userId) {
+      router.push("/sign-in")
+      return
+    }
 
-  const materials = studyMaterials as StudyMaterial[] || []
+    // Ambil data dari localStorage
+    const storedMaterials = getFromLocalStorage();
+    setMaterials(storedMaterials);
+  }, [userId, router]);
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -161,7 +160,15 @@ export default async function DashboardPage() {
         <div className="p-8">
           <div className="mb-8 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">Your Study Material</h2>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => {
+                const materials = getFromLocalStorage();
+                setMaterials(materials);
+              }}
+            >
               <RefreshCcw className="h-4 w-4" />
               Refresh
             </Button>
@@ -186,18 +193,33 @@ export default async function DashboardPage() {
                       <div className="flex items-start justify-between">
                         <h3 className="font-semibold text-gray-900">{material.title}</h3>
                         <span className="ml-2 shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">
-                          {new Date(material.created_at).toLocaleDateString('en-US', {
+                          {new Date(material.createdAt).toLocaleDateString('en-US', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric'
                           })}
                         </span>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-sm text-gray-600">{material.description}</p>
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-600">{material.topic}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                          {material.type.replace('-', ' ')}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+                          {material.difficulty}
+                        </span>
+                        {material.method === "gemini" && (
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                            AI Generated
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardFooter className="pt-0">
-                    <Button className="ml-auto bg-blue-600 hover:bg-blue-700">View</Button>
+                    <Button asChild className="ml-auto bg-blue-600 hover:bg-blue-700">
+                      <Link href={`/study/${material.id}`}>View</Link>
+                    </Button>
                   </CardFooter>
                 </Card>
               ))}

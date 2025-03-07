@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { GraduationCap, Briefcase, FileEdit, Code, BookOpen, Upload } from "lucide-react"
+import { GraduationCap, Briefcase, FileEdit, Code, BookOpen, Upload, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@clerk/nextjs"
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { saveToLocalStorage } from "@/lib/localStorage"
 
 const initialStudyOptions = [
   {
@@ -79,6 +81,7 @@ const secondStepOptions = [
 export default function CreatePage() {
   const { userId } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [step, setStep] = useState(1)
@@ -87,6 +90,7 @@ export default function CreatePage() {
   const [difficulty, setDifficulty] = useState("")
   const [secondStepSelected, setSecondStepSelected] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   
   // Dialog states
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false)
@@ -152,39 +156,57 @@ export default function CreatePage() {
 
   const handleGenerate = async () => {
     if (!userId || !selectedOption || !secondStepSelected || !topic || !difficulty || !title) {
-      return
+      return;
     }
     
-    setIsLoading(true)
+    setIsLoading(true);
     
     try {
-      // Create a new study material in Supabase
-      const { data, error } = await supabase
-        .from('study_materials')
-        .insert({
-          user_id: userId,
-          title: title,
-          description: topic.substring(0, 200), // Use first 200 chars as description
-          content: topic,
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          topic,
           type: selectedOption,
-          method: secondStepSelected,
-          difficulty: difficulty,
+          difficulty
         })
-        .select()
+      });
+
+      const data = await response.json();
       
-      if (error) {
-        console.error("Error creating study material:", error)
-        throw error
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate content');
+      }
+
+      // Save to localStorage di client-side
+      const savedMaterial = saveToLocalStorage({
+        userId,
+        title,
+        topic,
+        type: selectedOption,
+        difficulty,
+        content: data.content
+      });
+
+      if (savedMaterial) {
+        setIsGenerating(false);
+        router.push('/dashboard');
       }
       
-      // Redirect to dashboard
-      router.push('/dashboard')
     } catch (error) {
-      console.error("Error generating study material:", error)
+      console.error("Error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate study material",
+        variant: "destructive"
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (step === 1) {
     return (
@@ -272,6 +294,9 @@ export default function CreatePage() {
                       <option.icon className={`h-8 w-8 ${option.color}`} />
                     </div>
                     <span className="text-center text-sm font-medium text-gray-900">{option.title}</span>
+                    {option.id === "gemini" && (
+                      <p className="mt-2 text-xs text-gray-500 text-center">AI-powered content generation</p>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -403,14 +428,23 @@ export default function CreatePage() {
           
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              Enter topic or paste the content for which you want to generate study material
+              {secondStepSelected === "gemini" 
+                ? "Enter topic or describe what you want to learn about" 
+                : "Enter topic or paste the content for which you want to generate study material"}
             </h2>
             <Textarea
-              placeholder="Start writing here"
+              placeholder={secondStepSelected === "gemini" 
+                ? "E.g., Machine Learning fundamentals, JavaScript promises, Quantum physics basics..." 
+                : "Start writing here"}
               className="min-h-[150px] bg-white text-gray-900 border-blue-200 focus:border-blue-600 focus:ring-blue-600 placeholder:text-gray-500"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
+            {secondStepSelected === "gemini" && (
+              <p className="text-sm text-gray-500">
+                Gemini AI will generate comprehensive study material based on your topic. Be specific for better results.
+              </p>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -449,7 +483,14 @@ export default function CreatePage() {
               onClick={handleGenerate}
               disabled={isLoading}
             >
-              {isLoading ? "Generating..." : "Generate"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isGenerating ? "Generating..." : "Creating..."}
+                </>
+              ) : (
+                secondStepSelected === "gemini" ? "Generate with AI" : "Create"
+              )}
             </Button>
           )}
         </div>
