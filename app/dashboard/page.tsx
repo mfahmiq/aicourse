@@ -1,32 +1,17 @@
-"use client"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardFooter, CardHeader } from "@/components/ui/card"
 import { RefreshCcw, Laptop, Plus } from "lucide-react"
 import Link from "next/link"
-import { useAuth, useUser } from "@clerk/nextjs"
-import { useRouter } from "next/navigation"
+import { auth, currentUser } from "@clerk/nextjs"
 import { UserButton } from "@clerk/nextjs"
-import { getFromLocalStorage } from "@/lib/localStorage"
-import { useEffect, useState } from "react"
-import { LocalStudyMaterial } from "@/lib/localStorage"
+import { getStudyMaterials } from "@/lib/study-materials"
+import { DeleteButton } from "./components/delete-button"
+import { MaterialActions } from "./components/material-actions"
 
-export default function DashboardPage() {
-  const { userId } = useAuth()
-  const { user } = useUser()
-  const router = useRouter()
-  const [materials, setMaterials] = useState<LocalStudyMaterial[]>([])
-
-  useEffect(() => {
-    if (!userId) {
-      router.push("/sign-in")
-      return
-    }
-
-    // Ambil data dari localStorage
-    const storedMaterials = getFromLocalStorage();
-    setMaterials(storedMaterials);
-  }, [userId, router]);
+export default async function DashboardPage() {
+  const { userId } = auth()
+  const user = await currentUser()
+  const materials = await getStudyMaterials()
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -92,29 +77,7 @@ export default function DashboardPage() {
               </svg>
               Upgrade
             </Button>
-            <Button
-              variant="ghost"
-              asChild
-              className="w-full justify-start gap-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            >
-              <Link href="/profile">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="8" r="5" />
-                  <path d="M20 21a8 8 0 1 0-16 0" />
-                </svg>
-                Profile
-              </Link>
-            </Button>
+            
           </nav>
 
           {/* Credits */}
@@ -164,10 +127,6 @@ export default function DashboardPage() {
               variant="outline" 
               size="sm" 
               className="gap-2"
-              onClick={() => {
-                const materials = getFromLocalStorage();
-                setMaterials(materials);
-              }}
             >
               <RefreshCcw className="h-4 w-4" />
               Refresh
@@ -189,30 +148,35 @@ export default function DashboardPage() {
                         <div className="mt-1 h-2 w-2 rounded-full bg-red-500"></div>
                       </div>
                     </div>
-                    <div className="flex flex-1 flex-col">
-                      <div className="flex items-start justify-between">
-                        <h3 className="font-semibold text-gray-900">{material.title}</h3>
-                        <span className="ml-2 shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">
-                          {new Date(material.createdAt).toLocaleDateString('en-US', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-sm text-gray-600">{material.topic}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                          {material.type.replace('-', ' ')}
-                        </span>
-                        <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
-                          {material.difficulty}
-                        </span>
-                        {material.method === "gemini" && (
-                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
-                            AI Generated
-                          </span>
-                        )}
+                    <div className="flex items-start justify-between w-full">
+                      <div className="flex items-start gap-4">
+                        <MaterialActions id={material.id} title={material.title} />
+                        <div className="flex flex-1 flex-col">
+                          <div className="flex items-start justify-between">
+                            <h3 className="font-semibold text-gray-900">{material.title}</h3>
+                            <span className="ml-2 shrink-0 rounded-full bg-blue-600 px-3 py-1 text-xs font-medium text-white">
+                              {new Date(material.created_at).toLocaleDateString('en-US', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-sm text-gray-600">{material.topic}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+                              {material.type.replace('-', ' ')}
+                            </span>
+                            <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+                              {material.difficulty}
+                            </span>
+                            {material.method === "gemini" && (
+                              <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                                AI Generated
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>

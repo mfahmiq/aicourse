@@ -13,3 +13,16 @@ export type Profile = {
   created_at: string;
   updated_at: string;
 };
+
+export type StudyMaterial = {
+  id: string;
+  title: string;
+  topic: string;
+  type: string;
+  difficulty: string;
+  content: string;
+  user_id: string;
+  method: string;
+  created_at: string;
+  updated_at: string;
+};
